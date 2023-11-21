@@ -1,54 +1,15 @@
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
-from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import LabelEncoder
-import pandas as pd
-from sklearn import svm
-from sklearn.model_selection import GridSearchCV
 import os
+import glob
+import cv2
 import matplotlib.pyplot as plt
-from skimage.transform import resize
-from skimage.io import imread
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report,accuracy_score,confusion_matrix
-import pickle
-from skimage import color
-from data_pre import datagenerator
-from tensorflow import keras
-import seaborn as sns
-from numpy.random import seed
+from keras.utils import np_utils
 from tensorflow.random import set_seed
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
-from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import LabelEncoder
-from keras.datasets import mnist
-from keras.utils import np_utils
-import numpy as np
-import pandas as pd
-from sklearn import svm
-from sklearn.model_selection import GridSearchCV
-import os
-import matplotlib.pyplot as plt
-from skimage.transform import resize
-from skimage.io import imread
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report,accuracy_score,confusion_matrix
-import picklez
-from data_pre import datagenerator
-from keras.datasets import mnist
-from keras.utils import np_utils
-from train_ANN import ANN_chart
-from train_ANN import ANN_len
-from train_SVM import SVM_len
-from train_SVM import SVM_chart
-from extra_keras_datasets import emnist
+from tensorflow import keras
+from PIL import Image
+import random
 
-def chart(x_train,x_test,image_size):
+def Opaqu(x_train,x_test,image_size):
     train_len = len(x_train)
     test_len = len(x_test)
     Xp=np.ones([train_len,4*image_size])*image_size
@@ -113,7 +74,7 @@ def chart(x_train,x_test,image_size):
     return Xp , Xt
 
 
-def len_(x_train,x_test,image_size):
+def glass(x_train,x_test,image_size):
     train_len = len(x_train)
     test_len = len(x_test)
     Xp=np.zeros([train_len,4*image_size])
@@ -206,21 +167,19 @@ def numbers_localmax(X):
             c+=1
     return c
 
-def ANN_chart(y_train,Xp_chart,Xt_chart,y_test):
+def ANN_Opaqu(y_train,Xp_Opaqu,Xt_Opaqu,y_test):
     y_train_ANN = np_utils.to_categorical(y_train)
     y_test_ANN = np_utils.to_categorical(y_test)
-#     model=keras.models.load_model('model_Ann_letter_chart_mnist_')
     set_seed(4*28)
-    inputs = keras.Input(shape=Xp_chart.shape[1])
+    inputs = keras.Input(shape=Xp_Opaqu.shape[1])
     hidden_layer = keras.layers.Dense(128, activation="relu")(inputs)
     output_layer = keras.layers.Dense(35, activation="softmax")(hidden_layer)
     model = keras.Model(inputs=inputs, outputs=output_layer)
     print(model.summary())
     model.compile(optimizer='adam', loss=keras.losses.CategoricalCrossentropy())
-    history = model.fit(Xp_chart, y_train_ANN, epochs=50)
-#     sns.lineplot(x=history.epoch, y=history.history['loss'])
-    model.save('model_Ann_chart_finger_45')
-    y_pred = model.predict(Xt_chart)
+    history = model.fit(Xp_Opaqu, y_train_ANN, epochs=50)
+    model.save('model_Opaqu')
+    y_pred = model.predict(Xt_Opaqu)
     cc=0
     for  i in range((y_pred.shape[0])):
         if np.argmax(y_pred[i]) == np.argmax(y_test_ANN[i]):
@@ -232,7 +191,6 @@ def ANN_chart(y_train,Xp_chart,Xt_chart,y_test):
 def ANN_len(y_train,Xp_len,y_test,Xt_len):
     y_train_ANN = np_utils.to_categorical(y_train)
     y_test_ANN = np_utils.to_categorical(y_test)
-#     model=keras.models.load_model('model_Ann-letter_len_mnist_')
     set_seed(4*28)
     inputs = keras.Input(shape=Xp_len.shape[1])
     hidden_layer = keras.layers.Dense(128, activation="relu")(inputs)
@@ -243,7 +201,7 @@ def ANN_len(y_train,Xp_len,y_test,Xt_len):
     model.compile(optimizer='adam', loss=keras.losses.CategoricalCrossentropy())
     history = model.fit(Xp_len, y_train_ANN, epochs=50)
 #     sns.lineplot(x=history.epoch, y=history.history['loss'])
-    model.save('model_Ann_len_finger')
+    model.save('model_glass')
     y_pred = model.predict(Xt_len)
     print(y_pred.shape)
     cc=0
@@ -274,15 +232,15 @@ for i in range(len(train)):
 x_train=[]
 for i in x_train_path:
     input_image = Image.open(i)
-    grayscale_image = input_image.convert('L')
+    new_size = (28, 28)
+    resized_image = filtered_image.resize(new_size)
+    grayscale_image = resized_image.convert('L')
     image_array = np.array(grayscale_image)
     pivot_pixel_value = np.mean(image_array) * 0.8
     filtered_image_array = np.where(image_array < pivot_pixel_value, 0, image_array)
     filtered_image_array = np.where(filtered_image_array >= pivot_pixel_value, 255, filtered_image_array)
     filtered_image = Image.fromarray(filtered_image_array)
-    new_size = (28, 28)
-    resized_image = filtered_image.resize(new_size)
-    x_train.append(resized_image)
+    x_train.append(filtered_image)
 
 test_index=random.sample(range(0, 42000-1), 4200)
 
@@ -299,8 +257,8 @@ for i in range(42000):
         x_train_final.append(x_train[i])
         y_train_final.append(y_train[i])
 
-x_train_chart , x_test_chart =  chart(x_train_final,x_test,28)  
-x_train_len , x_test_len =  len_(x_train,x_test,200)
+x_train_Opaqu , x_test_Opaqu =  Opaqu(x_train_final,x_test,28)  
+x_train_len , x_test_len =  glass(x_train,x_test,200)
 dict_lable={}
 index=0
 for i in set(y_test):
@@ -312,4 +270,4 @@ for i in range(len(y_train_final)):
 for i in range(len(y_test)):
     y_test[i]=dict_lable[y_test[i]]
 
-a=ANN_chart(y_train_final,x_train_chart,x_test_chart,y_test) 
+a=ANN_Opaqu(y_train_final,x_train_Opaqu,x_test_Opaqu,y_test) 
