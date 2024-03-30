@@ -1,273 +1,284 @@
+# This code is developed by CS Lab at Chosun University.
+# Author: CS Lab team
+# Date: 2023-11-11
+# Version 1.0
+
 import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 import glob
 import cv2
-import matplotlib.pyplot as plt
-import numpy as np
-from keras.utils import np_utils
-from tensorflow.random import set_seed
-from tensorflow import keras
-from PIL import Image
 import random
-
-def Opaqu(x_train,x_test,image_size):
-    train_len = len(x_train)
-    test_len = len(x_test)
-    Xp=np.ones([train_len,4*image_size])*image_size
-    Xt=np.ones([test_len,4*image_size])*image_size
-    
-    for c in range(train_len):
-        for i in range(np.array(x_train[c]).shape[0]):
-            for j in range(5,np.array(x_train[c]).shape[1]):
-                if np.array(x_train[c])[i][j] < 100 :
-                    Xp[c][i] = j
-                    break
-                    
-        for j in range(np.array(x_train[c]).shape[1]):
-            for i in range(np.array(x_train[c]).shape[0]-1-5,-1,-1):
-                if np.array(x_train[c])[i][j] < 100 :
-                    Xp[c][image_size+j] = image_size-i
-                    break
-                    
-        for i in range(np.array(x_train[c]).shape[0]):
-            for j in range(np.array(x_train[c]).shape[1]-1-5,-1,-1):
-                if np.array(x_train[c])[i][j] < 100:
-                    Xp[c][2*image_size+i] = image_size-j
-                    break
-
-        for j in range(np.array(x_train[c]).shape[1]):
-            for i in range(5,np.array(x_train[c]).shape[0]):
-                if np.array(x_train[c])[i][j] < 100 :
-                    Xp[c][3*image_size+j] = i
-                    break
-
-    for c in range(test_len):
-        
-        for i in range(np.array(x_test[c]).shape[0]):
-            for j in range(5,np.array(x_test[c]).shape[1]):
-                if np.array(x_test[c])[i][j]  < 100:
-                    Xt[c][i]=j
-                    break
-                    
-        for j in range(np.array(x_test[c]).shape[1]):
-            for i in range(np.array(x_test[c]).shape[0]-1-5,-1,-1):
-                if np.array(x_test[c])[i][j] < 100:
-                    Xt[c][image_size+j] = image_size-i
-                    break
-                    
-        for i in range(np.array(x_train[c]).shape[0]):
-            for j in range(np.array(x_train[c]).shape[1]-1-5,-1,-1):
-                if np.array(x_test[c])[i][j]  < 100:
-                    Xt[c][2*image_size+i] = image_size-j
-                    break
-
-        for j in range(np.array(x_test[c]).shape[1]):
-            for i in range(5,np.array(x_test[c]).shape[0]):
-                if np.array(x_test[c])[i][j]  < 100:
-                    Xt[c][3*image_size+j] = i
-                    break
-    for i in range(train_len):
-        for k in range(image_size*4):
-            Xp[i][k] = Xp[i][k]/image_size
-    for i in range(test_len):
-        for k in range(image_size*4):
-            Xt[i][k] = Xt[i][k]/image_size
-    return Xp , Xt
+import np_utils
+import numpy as np
+from PIL import Image
+import tensorflow as tf
+from tensorflow import keras
+import matplotlib.pyplot as plt
+from keras.utils import to_categorical
 
 
-def glass(x_train,x_test,image_size):
-    train_len = len(x_train)
-    test_len = len(x_test)
-    Xp=np.zeros([train_len,4*image_size])
-    Xt=np.zeros([test_len,4*image_size])
-    for i in range(train_len):
-        for k in range(image_size):
-            a=0
-#             print(image_size/2)
-            for h in range(int(image_size/2)):
-                a=a+x_train[i][k][h]
-            Xp[i][k]=a
-        for k in range(image_size):
-            a=0
-            for h in range(int(image_size/2),image_size):
-                a=a+x_train[i][k][h]
-            Xp[i][image_size+k]=a
-        for k in range(image_size):
-            a=0
-            for h in range(int(image_size/2)):
-                a=a+x_train[i][h][k]
-            Xp[i][2*image_size+k]=a
-        for k in range(image_size):
-            a=0
-            for h in range(int(image_size/2),image_size):
-                a=a+x_train[i][h][k]
-            Xp[i][3*image_size+k]=a
+# image pre-processing
+def preprocess(image):
+    # making the grayscale image
+    grayscale_image = image.convert('L')
 
-    for i in range(test_len):
-        for k in range(image_size):
-            a=0
-            for h in range(int(image_size/2)):
-                a=a+x_test[i][k][h]
-            Xt[i][k]=a
-        for k in range(image_size):
-            a=0
-            for h in range(int(image_size/2),image_size):
-                a=a+x_test[i][k][h]
-            Xt[i][k+image_size]=a
-        for k in range(image_size):
-            a=0
-            for h in range(int(image_size/2)):
-                a=a+x_test[i][h][k]
-            Xt[i][2*image_size+k]=a
-        for k in range(image_size):
-            a=0
-            for h in range(int(image_size/2),image_size):
-                a=a+x_test[i][h][k]
-            Xt[i][3*image_size+k]=a
-    for i in range(train_len):
-        for k in range(image_size*4):
-            Xp[i][k]=Xp[i][k]/(255*image_size)
-    for i in range(test_len):
-        for k in range(image_size*4):
-            Xt[i][k]=Xt[i][k]/(255*image_size)
-    return Xp , Xt
-
-def finde_second(list_i):
-    mx = max(list_i[0], list_i[1])
-    secondmax = min(list_i[0], list_i[1])
-    secondmax_index=0
-    mx_index=0
-    n = len(list_i)
-    for i in range(2,n):
-        if list_i[i] > mx:
-            secondmax = mx
-            mx = list_i[i]
-        elif list_i[i] > secondmax and \
-            mx != list_i[i]:
-            secondmax = list_i[i]
-        elif mx == secondmax and \
-            secondmax != list_i[i]:
-              secondmax = list_i[i]
-    list_return=[]
-    for i in range(n):
-        if list_i[i]==max(list_i):
-            mx_index=i
-            list_return.append(max(list_i))
-            list_return.append(mx_index)
-    for i in range(n):
-        if list_i[i]==secondmax:
-            secondmax_index=i
-            list_return.append(secondmax)
-            list_return.append(secondmax_index)
-    return list_return
-
-def numbers_localmax(X):
-    c=0
-    for i in range(1,len(X)-1):
-        if X[i]>X[i-1] and X[i]>=X[i+1]:
-            c+=1
-    return c
-
-def ANN_Opaqu(y_train,Xp_Opaqu,Xt_Opaqu,y_test):
-    y_train_ANN = np_utils.to_categorical(y_train)
-    y_test_ANN = np_utils.to_categorical(y_test)
-    set_seed(4*28)
-    inputs = keras.Input(shape=Xp_Opaqu.shape[1])
-    hidden_layer = keras.layers.Dense(128, activation="relu")(inputs)
-    output_layer = keras.layers.Dense(35, activation="softmax")(hidden_layer)
-    model = keras.Model(inputs=inputs, outputs=output_layer)
-    print(model.summary())
-    model.compile(optimizer='adam', loss=keras.losses.CategoricalCrossentropy())
-    history = model.fit(Xp_Opaqu, y_train_ANN, epochs=50)
-    model.save('model_Opaqu')
-    y_pred = model.predict(Xt_Opaqu)
-    cc=0
-    for  i in range((y_pred.shape[0])):
-        if np.argmax(y_pred[i]) == np.argmax(y_test_ANN[i]):
-            cc+=1
-    ACC=((cc/y_pred.shape[0])*100)
-    print(ACC)
-    return y_pred
-
-def ANN_len(y_train,Xp_len,y_test,Xt_len):
-    y_train_ANN = np_utils.to_categorical(y_train)
-    y_test_ANN = np_utils.to_categorical(y_test)
-    set_seed(4*28)
-    inputs = keras.Input(shape=Xp_len.shape[1])
-    hidden_layer = keras.layers.Dense(128, activation="relu")(inputs)
-    hidden_layer_1 = keras.layers.Dense(128, activation="relu")(hidden_layer)
-    output_layer = keras.layers.Dense(35, activation="softmax")(hidden_layer_1)
-    model = keras.Model(inputs=inputs, outputs=output_layer)
-    print(model.summary())
-    model.compile(optimizer='adam', loss=keras.losses.CategoricalCrossentropy())
-    history = model.fit(Xp_len, y_train_ANN, epochs=50)
-#     sns.lineplot(x=history.epoch, y=history.history['loss'])
-    model.save('model_glass')
-    y_pred = model.predict(Xt_len)
-    print(y_pred.shape)
-    cc=0
-    for  i in range((y_pred.shape[0])):
-        if np.argmax(y_pred[i]) == np.argmax(y_test_ANN[i]):
-            cc+=1
-    ACC=((cc/y_pred.shape[0])*100)
-    print(ACC)
-    print("**")
-    return ACC
-
-
-art=0
-
-for i in range(len(train)):
-    b=(glob.glob(f"Path to data folder/{train[i]}/*"))   
-    art=art+(len(b))
-
-x_train_path=[]
-y_train=[]
-for i in range(len(train)):
-    b=(glob.glob(f"Path to data folder/{train[i]}/*"))
-    for j in b:
-#         print(b)
-        x_train_path.append(j)
-        y_train.append(train[i])
-
-x_train=[]
-for i in x_train_path:
-    input_image = Image.open(i)
-    new_size = (28, 28)
-    resized_image = filtered_image.resize(new_size)
-    grayscale_image = resized_image.convert('L')
+    # filtering the background
     image_array = np.array(grayscale_image)
     pivot_pixel_value = np.mean(image_array) * 0.8
     filtered_image_array = np.where(image_array < pivot_pixel_value, 0, image_array)
     filtered_image_array = np.where(filtered_image_array >= pivot_pixel_value, 255, filtered_image_array)
     filtered_image = Image.fromarray(filtered_image_array)
-    x_train.append(filtered_image)
 
-test_index=random.sample(range(0, 42000-1), 4200)
+    # resize the input image
+    image_size = 28
+    resized_image = filtered_image.resize((image_size,image_size))
 
-x_test=[]
-y_test=[]
-for i in test_index:
-    print(i)
-    x_test.append(x_train[i])
-    y_test.append(y_train[i])
-x_train_final=[]
-y_train_final=[]
-for i in range(42000):
-    if i not in test_index:
-        x_train_final.append(x_train[i])
-        y_train_final.append(y_train[i])
+    return resized_image
 
-x_train_Opaqu , x_test_Opaqu =  Opaqu(x_train_final,x_test,28)  
-x_train_len , x_test_len =  glass(x_train,x_test,200)
-dict_lable={}
-index=0
-for i in set(y_test):
-    dict_lable[i]=index
-    index+=1
 
-for i in range(len(y_train_final)):
-    y_train_final[i]=dict_lable[y_train_final[i]]
-for i in range(len(y_test)):
-    y_test[i]=dict_lable[y_test[i]]
+# image opaque abstraction
+def OA (image):
+    # Get dimensions of the image
+    height, width = image.size
 
-a=ANN_Opaqu(y_train_final,x_train_Opaqu,x_test_Opaqu,y_test) 
+    # convert to matrix
+    img = np.array(image)
+
+    # defining the abstraction vector
+    n = (height + width) * 2
+    opaque = np.ones(n)
+    
+    # threshold of opaque pixel
+    opaque_threshold = 100
+
+    # image padding
+    padding = 5
+
+    # TD scan
+    for col in range(width): # loop on columns
+        for row in range(padding,height): # scan each column top-down
+            if img[row][col] < opaque_threshold :
+                opaque[col] = row / height
+                break
+
+    # BU scan
+    for col in range(width): # loop on columns
+        for row in range(height-padding,-1,-1): # scan each column bottom-up
+            if img[row][col] < opaque_threshold :
+                opaque[width+col] = (height-row) / height
+                break
+            
+    # RL scan
+    for row in range(height): # loop on rows
+        for col in range(width-padding,-1,-1): # scan each row right to left
+            if img[row][col] < opaque_threshold :
+                opaque[2*width+row] = (width-col) / width
+                break
+
+    # LR scan
+    for row in range(height): # loop on rows
+        for col in range(padding,width): # scan each row left to right
+            if img[row][col] < opaque_threshold :
+                opaque[2*width+height+row] = col / width
+                break
+    
+    return opaque
+
+
+# image glass abstraction
+def GA (image):
+    # Get dimensions of the image
+    height, width = image.size
+
+    # convert to matrix
+    img = np.array(image)
+
+    # defining the abstraction vector
+    n = (height + width) * 2
+    glass = np.zeros(n)
+    
+    # MD scan
+    for col in range(width): # loop on columns
+        shadow = 0
+        for row in range(int(height/2)): # scan each column middle-down
+            shadow += img[row][col]
+        glass[col] = shadow / (height * 255)
+
+    # MU scan
+    for col in range(width): # loop on columns
+        shadow = 0
+        for row in range(int(height/2),height): # scan each column middle-up
+            shadow += img[row][col]
+        glass[width+col] = shadow / (height * 255)
+            
+    # ML scan
+    for row in range(height): # loop on rows
+        shadow = 0
+        for col in range(int(width/2)): # scan each row middle to left
+           shadow += img[row][col]
+        glass[2*width+row] = shadow / (width * 255)
+
+    # MR scan
+    for row in range(height): # loop on rows
+        shadow = 0
+        for col in range(int(width/2),width): # scan each row middle to right
+            shadow += img[row][col]
+        glass[2*width+height+row] = shadow / (width * 255)
+    
+    return glass
+
+# train and test the Neural Network
+def ANN(x_train,y_train,x_test,y_test,abstraction_method):
+
+    # one hot encoding of class labels
+    y_train_ANN = to_categorical(y_train)
+    y_test_ANN = to_categorical(y_test)
+
+    tf.random.set_seed(4*28)
+
+    # defining the ANN model
+    model = keras.Sequential()
+
+    # add input layer
+    model.add(keras.Input(shape=np.array(x_train[1]).shape))
+
+    # add hidden layer
+    model.add(keras.layers.Dense(128, activation="relu"))
+
+    if abstraction_method == "glass":
+        # add second hidden layer
+        model.add(keras.layers.Dense(128, activation="relu"))
+    
+    # add output layer
+    model.add(keras.layers.Dense(len(set(y_train)), activation="softmax"))
+
+    # print the model summary
+    print("-"*40)
+    print(model.summary())
+
+    # setting model parameters
+    model.compile(optimizer='adam', 
+                  loss=keras.losses.CategoricalCrossentropy(),
+                  metrics=['accuracy'])
+
+    # train
+    history = model.fit(x_train,y_train_ANN,epochs=50)
+    
+    # save trained model to a file
+    model.save(f"{abstraction_method}.keras")
+
+    # test
+    y_pred = model.predict(x_test)
+
+    # calculate the number of matches
+    matched = 0
+    for  i in range((y_pred.shape[0])):
+        if np.argmax(y_pred[i]) == np.argmax(y_test_ANN[i]):
+            matched += 1
+    
+    # calculate and print the model accuracy
+    ACC = (matched / y_pred.shape[0]) * 100
+    print("ACC:" , ACC)
+
+    return y_pred
+
+
+# -----------------------------------------------------------------------------------------------------#
+#                                               Main module                                            #
+# -----------------------------------------------------------------------------------------------------#
+
+# image abstraction method
+abstraction_method = "opaque" # opaque / glass
+    
+dataset = "data"
+x_data = []
+y_data = []
+data_paths = []
+
+print("-"*40)
+print("start program ...")
+print("abstraction method: ", abstraction_method)
+
+# all class labels
+labels = [name for name in os.listdir(dataset) if os.path.isdir(os.path.join(dataset, name))]
+
+# reading all input data paths
+for i in range(len(labels)):
+    folder_path = (glob.glob(f"{dataset}/{labels[i]}/*"))
+    for file_name in folder_path:
+        data_paths.append(file_name)
+        y_data.append(labels[i])
+
+# number of data items
+N = len(data_paths)
+#print("total data items: ", N)
+
+print("-"*40)
+print("start reading and abstraction of input data")
+
+# preprocessing input images to remove the background
+for path in data_paths:
+    # read the input image
+    input_image = Image.open(path)
+
+    # pre-processing the input image
+    processed_image = preprocess(input_image)
+
+    # image abstraction
+    if abstraction_method == "opaque":
+        processed_image = OA(processed_image)
+    elif abstraction_method == "glass":
+        processed_image = GA(processed_image)
+    else:
+        print("Error: unknown abstraction method!")
+        exit(0)
+
+    # add the abstracted image to the set of data
+    x_data.append(processed_image)
+
+print("abstraction finished!")
+
+print("-"*40)
+print("start sampling for train and test ...")
+
+# selecting 20% of data randomly as test set (selecting indices)
+test_indices = random.sample(range(N), int(N/5))
+
+#making a dictionary of class labels
+dict_lable = {}
+index = 0
+for i in set(y_data):
+    dict_lable[i] = index
+    index += 1
+
+# separating test set
+x_test = []
+y_test = []
+for i in test_indices:
+    x_test.append(x_data[i])
+    y_test.append(dict_lable[y_data[i]])
+
+# separating train set
+x_train = []
+y_train = []
+for i in range(N):
+    if i not in test_indices:
+        x_train.append(x_data[i])
+        y_train.append(dict_lable[y_data[i]])
+
+# printing test, train, and data sizes
+print("-"*40)
+print("dataset size:", N)
+print("test set size: ", len(x_test))
+print("train set size: ", len(x_train))
+
+print("-"*40)
+print("start train and test the Neural Network!")
+
+# convert list of numpy 3D arrays to a 4D array
+x_train = np.stack(x_train, axis=0) 
+x_test = np.stack(x_test, axis=0) 
+
+# train and test ANN
+a = ANN(x_train,y_train,x_test,y_test,abstraction_method)
